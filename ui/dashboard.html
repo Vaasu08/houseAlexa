@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>houseAlexa Smart Home Dashboard</title>
+  <style>
+    :root {
+      --bg: var(--mcp-ui-bg, #0d1117);
+      --card-bg: var(--mcp-ui-card-bg, rgba(22, 27, 34, 0.75));
+      --card-border: var(--mcp-ui-border, rgba(48, 54, 61, 0.8));
+      --text: var(--mcp-ui-text, #f0f6fc);
+      --text-muted: var(--mcp-ui-text-muted, #8b949e);
+      --accent: var(--mcp-ui-accent, #58a6ff);
+      --accent-glow: rgba(88, 166, 255, 0.25);
+      --success: #3fb950;
+      --warning: #d29922;
+      --danger: #f85149;
+      --radius: 14px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      user-select: none;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      padding: 18px;
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(10px);
+    }
+    .header-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: rgba(63, 185, 80, 0.15);
+      color: var(--success);
+      border: 1px solid rgba(63, 185, 80, 0.3);
+    }
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+    }
+
+    /* Scene Shortcuts */
+    .scenes-bar {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .scene-btn {
+      flex: 1;
+      min-width: 110px;
+      padding: 10px 14px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      border-radius: var(--radius);
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .scene-btn:hover {
+      background: var(--accent-glow);
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    /* Grid Layout */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 16px;
+      backdrop-filter: blur(12px);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      transition: border-color 0.2s ease;
+    }
+    .card:hover {
+      border-color: rgba(88, 166, 255, 0.4);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .card-title {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Toggle Switch */
+    .toggle {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      display: inline-block;
+    }
+    .toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 34px;
+      transition: .3s;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 3px;
+      bottom: 3px;
+      background-color: #8b949e;
+      border-radius: 50%;
+      transition: .3s;
+    }
+    input:checked + .slider {
+      background-color: var(--accent);
+      border-color: var(--accent);
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+    input:checked + .slider:before {
+      transform: translateX(20px);
+      background-color: #ffffff;
+    }
+
+    /* Slider Bar */
+    .range-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    input[type=range] {
+      flex: 1;
+      accent-color: var(--accent);
+      height: 5px;
+      border-radius: 5px;
+      background: #21262d;
+      cursor: pointer;
+    }
+    .range-val {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      min-width: 32px;
+      text-align: right;
+    }
+
+    /* Thermostat Widget */
+    .thermo-widget {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      padding: 6px 0;
+    }
+    .temp-circle {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      border: 3px solid var(--accent);
+      box-shadow: 0 0 20px var(--accent-glow);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .temp-large {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -1px;
+    }
+    .temp-unit {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    .thermo-controls {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .btn-circle {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #21262d;
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      font-size: 1.1rem;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    .btn-circle:hover {
+      background: #30363d;
+    }
+    .mode-pills {
+      display: flex;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .pill {
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      background: #21262d;
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+    .pill.active {
+      background: var(--accent);
+      color: #ffffff;
+      border-color: var(--accent);
+    }
+
+    /* Security Status Badges */
+    .lock-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: #161b22;
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+    }
+    .btn-lock {
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 0.76rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+    }
+    .btn-lock.locked {
+      background: rgba(63, 185, 80, 0.2);
+      color: var(--success);
+      border: 1px solid rgba(63, 185, 80, 0.4);
+    }
+    .btn-lock.unlocked {
+      background: rgba(248, 81, 73, 0.2);
+      color: var(--danger);
+      border: 1px solid rgba(248, 81, 73, 0.4);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-title">
+      <span>🏠</span> houseAlexa Dashboard
+    </div>
+    <div class="status-badge" id="host-badge">
+      <span class="status-dot"></span> MCP App Connected
+    </div>
+  </div>
+
+  <!-- Scene Quick Actions -->
+  <div class="scenes-bar">
+    <button class="scene-btn" onclick="triggerScene('movie_night')">🍿 Movie Night</button>
+    <button class="scene-btn" onclick="triggerScene('bedtime')">🌙 Bedtime</button>
+    <button class="scene-btn" onclick="triggerScene('good_morning')">☀️ Good Morning</button>
+    <button class="scene-btn" onclick="triggerScene('leaving_home')">🚗 Leaving Home</button>
+  </div>
+
+  <!-- Dashboard Grid -->
+  <div class="dashboard-grid">
+
+    <!-- Climate Card -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🌡️ Climate & Thermostat</div>
+        <span style="font-size:0.75rem; color:var(--text-muted);" id="current-temp-label">Room: 22.0°C</span>
+      </div>
+      <div class="thermo-widget">
+        <div class="temp-circle">
+          <div class="temp-large" id="target-temp-val">21.0</div>
+          <div class="temp-unit">°C Target</div>
+        </div>
+        <div class="thermo-controls">
+          <button class="btn-circle" onclick="adjustTemp(-0.5)">-</button>
+          <span style="font-size:0.8rem; color:var(--text-muted);">Adjust Target</span>
+          <button class="btn-circle" onclick="adjustTemp(+0.5)">+</button>
+        </div>
+        <div class="mode-pills">
+          <div class="pill active" id="mode-cool" onclick="setHvacMode('cool')">Cool</div>
+          <div class="pill" id="mode-heat" onclick="setHvacMode('heat')">Heat</div>
+          <div class="pill" id="mode-eco" onclick="setHvacMode('eco')">Eco</div>
+          <div class="pill" id="mode-off" onclick="setHvacMode('off')">Off</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Security & Access Card -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🔒 Security & Access</div>
+      </div>
+      <div class="lock-item">
+        <span>Front Entrance</span>
+        <button class="btn-lock locked" id="front-door-btn" onclick="toggleDoor('front_door')">🔒 Locked</button>
+      </div>
+      <div class="lock-item">
+        <span>Backyard Door</span>
+        <button class="btn-lock locked" id="back-door-btn" onclick="toggleDoor('back_door')">🔒 Locked</button>
+      </div>
+      <div class="lock-item">
+        <span>Garage Door</span>
+        <button class="btn-lock locked" id="garage-door-btn" onclick="toggleGarage()">🚪 Closed</button>
+      </div>
+    </div>
+
+    <!-- Lighting Controls -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">💡 Living Room Light</div>
+        <label class="toggle">
+          <input type="checkbox" id="living-room-power" onchange="toggleLight('living_room_light', this.checked)">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="range-wrap">
+        <span style="font-size:0.78rem; color:var(--text-muted);">Brightness</span>
+        <input type="range" id="living-room-bri" min="0" max="100" value="100" onchange="setBrightness('living_room_light', this.value)">
+        <span class="range-val" id="living-room-bri-val">100%</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">💡 Bedroom Light</div>
+        <label class="toggle">
+          <input type="checkbox" id="bedroom-power" onchange="toggleLight('bedroom_light', this.checked)">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="range-wrap">
+        <span style="font-size:0.78rem; color:var(--text-muted);">Brightness</span>
+        <input type="range" id="bedroom-bri" min="0" max="100" value="70" onchange="setBrightness('bedroom_light', this.value)">
+        <span class="range-val" id="bedroom-bri-val">70%</span>
+      </div>
+    </div>
+
+    <!-- Appliances & Robotics -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🤖 Robot Vacuum</div>
+        <span class="status-badge" id="vacuum-badge">Idle</span>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <button class="scene-btn" style="flex:1;" onclick="controlVacuum('start')">▶ Clean House</button>
+        <button class="scene-btn" style="flex:1;" onclick="controlVacuum('dock')">🏠 Return Dock</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Local state cache
+    let houseState = {
+      targetTemp: 21.0,
+      hvacMode: "cool",
+      doors: { front_door: true, back_door: true, garage_door: false },
+      lights: {
+        living_room_light: { power: false, brightness: 100 },
+        bedroom_light: { power: false, brightness: 70 }
+      }
+    };
+
+    // MCP Host communication helper
+    function sendMcpAction(action, data) {
+      if (window.parent) {
+        window.parent.postMessage({
+          source: "mcp-app",
+          type: "callTool",
+          action: action,
+          payload: data
+        }, "*");
+      }
+    }
+
+    // Listen for MCP Host incoming data
+    window.addEventListener("message", (event) => {
+      const data = event.data;
+      if (!data) return;
+
+      // When tool result is received
+      if (data.type === "toolResult" || data.type === "ontoolresult") {
+        const payload = data.result || data.payload;
+        if (payload) updateUIFromState(payload);
+      }
+    });
+
+    function updateUIFromState(state) {
+      if (state.thermostat) {
+        houseState.targetTemp = state.thermostat.target_temperature_c || 21.0;
+        document.getElementById("target-temp-val").textContent = houseState.targetTemp.toFixed(1);
+        if (state.thermostat.current_temperature_c) {
+          document.getElementById("current-temp-label").textContent = `Room: ${state.thermostat.current_temperature_c.toFixed(1)}°C`;
+        }
+      }
+      if (state.bedroom_light) {
+        document.getElementById("bedroom-power").checked = !!state.bedroom_light.power;
+        document.getElementById("bedroom-bri").value = state.bedroom_light.brightness || 70;
+        document.getElementById("bedroom-bri-val").textContent = `${state.bedroom_light.brightness || 70}%`;
+      }
+      if (state.living_room_light) {
+        document.getElementById("living-room-power").checked = !!state.living_room_light.power;
+        document.getElementById("living-room-bri").value = state.living_room_light.brightness || 100;
+        document.getElementById("living-room-bri-val").textContent = `${state.living_room_light.brightness || 100}%`;
+      }
+    }
+
+    // Interactive Handlers
+    function triggerScene(sceneName) {
+      sendMcpAction("apply_scene", { scene_name: sceneName });
+      if (sceneName === "movie_night") {
+        document.getElementById("living-room-power").checked = true;
+        document.getElementById("living-room-bri").value = 20;
+        document.getElementById("living-room-bri-val").textContent = "20%";
+        document.getElementById("bedroom-power").checked = false;
+      } else if (sceneName === "bedtime") {
+        document.getElementById("living-room-power").checked = false;
+        document.getElementById("bedroom-power").checked = true;
+        document.getElementById("bedroom-bri").value = 15;
+        document.getElementById("bedroom-bri-val").textContent = "15%";
+      }
+    }
+
+    function adjustTemp(delta) {
+      houseState.targetTemp = Math.round((houseState.targetTemp + delta) * 10) / 10;
+      document.getElementById("target-temp-val").textContent = houseState.targetTemp.toFixed(1);
+      sendMcpAction("control_device", {
+        device_id: "thermostat",
+        updates: { target_temperature_c: houseState.targetTemp }
+      });
+    }
+
+    function setHvacMode(mode) {
+      document.querySelectorAll(".mode-pills .pill").forEach(p => p.classList.remove("active"));
+      const pill = document.getElementById(`mode-${mode}`);
+      if (pill) pill.classList.add("active");
+      sendMcpAction("control_device", {
+        device_id: "thermostat",
+        updates: { mode: mode }
+      });
+    }
+
+    function toggleDoor(doorKey) {
+      houseState.doors[doorKey] = !houseState.doors[doorKey];
+      const btn = document.getElementById(`${doorKey.replace("_", "-")}-btn`);
+      const isLocked = houseState.doors[doorKey];
+      btn.className = `btn-lock ${isLocked ? 'locked' : 'unlocked'}`;
+      btn.textContent = isLocked ? "🔒 Locked" : "🔓 Unlocked";
+      sendMcpAction("control_device", {
+        device_id: doorKey,
+        updates: { locked: isLocked }
+      });
+    }
+
+    function toggleGarage() {
+      houseState.doors.garage_door = !houseState.doors.garage_door;
+      const isOpen = houseState.doors.garage_door;
+      const btn = document.getElementById("garage-door-btn");
+      btn.className = `btn-lock ${isOpen ? 'unlocked' : 'locked'}`;
+      btn.textContent = isOpen ? "🚪 Open" : "🚪 Closed";
+      sendMcpAction("control_device", {
+        device_id: "garage_door",
+        updates: { open: isOpen }
+      });
+    }
+
+    function toggleLight(deviceId, power) {
+      sendMcpAction("control_device", {
+        device_id: deviceId,
+        updates: { power: power }
+      });
+    }
+
+    function setBrightness(deviceId, val) {
+      const el = deviceId === "living_room_light" ? "living-room-bri-val" : "bedroom-bri-val";
+      document.getElementById(el).textContent = `${val}%`;
+      sendMcpAction("control_device", {
+        device_id: deviceId,
+        updates: { brightness: parseInt(val, 10) }
+      });
+    }
+
+    function controlVacuum(action) {
+      const badge = document.getElementById("vacuum-badge");
+      badge.textContent = action === "start" ? "Cleaning..." : "Docked";
+      badge.style.color = action === "start" ? "var(--warning)" : "var(--success)";
+      sendMcpAction("control_device", {
+        device_id: "robot_vacuum",
+        updates: { status: action === "start" ? "cleaning_kitchen" : "docked" }
+      });
+    }
+  </script>
+</body>
+</html>

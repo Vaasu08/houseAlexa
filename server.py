@@ -1,16 +1,17 @@
 """
 server.py - Self-Hosted Dynamic MCP Server for houseAlexa
-Conforms to: MCP Spec (Streamable HTTP transport) for Alexa+
+Conforms to: MCP Spec (Streamable HTTP transport) for Alexa+ & MCP Apps SDK
 
-AI-First Architecture:
-Rather than hardcoding separate tools for every device, this server exposes:
-1. Dynamic Controller (`control_device`): Control any existing or newly added device.
-2. Device Inspector (`get_devices`): Inspect all devices or filter by category/room.
-3. Macro Scene Activator (`apply_scene`): Execute multi-device routines in a single call.
-4. Live Context Resource (`house://devices`): Live prompt context for Alexa+.
+MCP App Architecture:
+Combines MCP tools with interactive UI resources:
+1. UI Resource (`ui://house-alexa/dashboard.html`): Serves bundled interactive HTML dashboard.
+2. Tool Linking (`_meta.ui.resourceUri`): Tools link directly to the UI view for Claude Desktop & Alexa+ smart screens.
+3. Fallback for non-UI hosts: Full text/JSON data returned for voice-only Echo speakers.
+4. Dynamic Entity Controller: Controls any device or auto-registers new appliances on the fly.
 """
 
 import sys
+import os
 import json
 import argparse
 from typing import Optional, Dict, Any
@@ -21,20 +22,70 @@ from house_state import house
 mcp_server = MCPServer(
     name="house-alexa-mcp",
     version="2.0.0",
-    description="Dynamic AI-first smart home control server for Alexa+ integrations via Model Context Protocol.",
+    description="Dynamic AI-first smart home control server & MCP App for Alexa+ and Claude Desktop.",
 )
 
-# 2. Live MCP Resource: Alexa+ has the live home state streamed directly into prompt context
+DASHBOARD_HTML_PATH = os.path.join(os.path.dirname(__file__), "ui", "dashboard.html")
+
+
+def load_dashboard_html() -> str:
+    if os.path.exists(DASHBOARD_HTML_PATH):
+        with open(DASHBOARD_HTML_PATH, "r", encoding="utf-8") as f:
+            return f.read()
+    return "<html><body><h1>houseAlexa Dashboard</h1></body></html>"
+
+
+# 2. Live MCP Data Resource: Real-time context feed for LLM prompts
 @mcp_server.resource("house://devices")
 def live_devices_state() -> str:
     """Live state of all devices and appliances in the home."""
     return json.dumps(house.get_summary(), indent=2)
 
 
-# 3. Dynamic AI Tools
+# 3. Interactive MCP App UI Resource (Serves bundled HTML UI view)
+@mcp_server.resource(
+    "ui://house-alexa/dashboard.html",
+    name="Smart Home Interactive Dashboard",
+    title="houseAlexa Interactive View",
+    description="Interactive MCP App UI for controlling smart home devices and viewing live status.",
+    mime_type="text/html",
+    meta={
+        "ui": {
+            "csp": {
+                "defaultSrc": ["'self'"],
+                "scriptSrc": ["'self'", "'unsafe-inline'"],
+                "styleSrc": ["'self'", "'unsafe-inline'"],
+            }
+        }
+    },
+)
+def interactive_dashboard_ui() -> str:
+    """Returns the bundled interactive MCP App HTML UI."""
+    return load_dashboard_html()
+
+
+# 4. Dynamic AI Tools with linked MCP App UI Views
+UI_META = {"ui": {"resourceUri": "ui://house-alexa/dashboard.html"}}
+
+
+@mcp_server.tool(
+    name="open_dashboard",
+    description="Open the interactive smart home dashboard UI inside Claude Desktop or Alexa+ smart display screens.",
+    meta=UI_META,
+)
+def open_dashboard() -> dict:
+    """Returns current home state and launches the interactive MCP App dashboard."""
+    return {
+        "status": "ready",
+        "message": "Interactive Smart Home Dashboard launched.",
+        "devices": house.get_summary(),
+    }
+
+
 @mcp_server.tool(
     name="get_devices",
     description="Inspect smart home devices. Returns all devices or filters by category (lighting, climate, security, media, appliance) or room (living_room, bedroom, kitchen, garage).",
+    meta=UI_META,
 )
 def get_devices(filter: Optional[str] = None) -> dict:
     """Inspect smart home devices.
@@ -48,6 +99,7 @@ def get_devices(filter: Optional[str] = None) -> dict:
 @mcp_server.tool(
     name="control_device",
     description="Dynamically control or set properties on any device in the home. Works for existing devices (lights, thermostat, doors, garage, speakers) AND new appliances (robot_vacuum, coffee_maker, oven, sprinklers) without hardcoding.",
+    meta=UI_META,
 )
 def control_device(
     device_id: str,
@@ -65,6 +117,7 @@ def control_device(
 @mcp_server.tool(
     name="apply_scene",
     description="Activate a multi-device scene (e.g. 'bedtime', 'leaving_home', 'movie_night', 'good_morning') or apply a batch update across multiple devices in one single call.",
+    meta=UI_META,
 )
 def apply_scene(
     scene_name: Optional[str] = None,
@@ -85,7 +138,7 @@ def apply_scene(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="houseAlexa MCP Server")
+    parser = argparse.ArgumentParser(description="houseAlexa MCP Server & App")
     parser.add_argument(
         "--transport",
         choices=["streamable-http", "sse", "stdio"],
@@ -103,10 +156,11 @@ def main():
     args = parser.parse_args()
 
     print("=" * 60)
-    print(" [HOUSE] houseAlexa Dynamic MCP Server (Alexa+ Spec v2.0)")
+    print(" [HOUSE] houseAlexa Dynamic MCP App Server (v2.0)")
     print(f" Transport: {args.transport}")
     if args.transport in ("streamable-http", "sse"):
         print(f" Listening on: http://{args.host}:{args.port}{args.path}")
+    print(" UI Resource: ui://house-alexa/dashboard.html")
     print("=" * 60)
 
     if args.transport == "streamable-http":

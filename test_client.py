@@ -1,13 +1,13 @@
 """
-test_client.py - Automated Test Client for houseAlexa Dynamic MCP Server
-Conforms to: MCP Spec (Streamable HTTP transport) for Alexa+
+test_client.py - Automated Test Client for houseAlexa Dynamic MCP Server & App
+Conforms to: MCP Spec (Streamable HTTP transport) for Alexa+ & MCP Apps SDK
 
 Analogy for a 5yo:
 This is our Robot Inspector!
 It connects to our MCP server over the radio (Streamable HTTP), discovers the
-dynamic tools, adjusts lights and garage, registers a brand new appliance
-(a robot vacuum) on the fly without any code changes, runs a whole-house scene,
-and verifies that everything persisted to disk!
+dynamic tools and their interactive MCP App UI views, tests the dashboard,
+controls devices, dynamically registers brand new appliances without code changes,
+and verifies everything persisted to disk!
 """
 
 import asyncio
@@ -29,19 +29,38 @@ async def test_mcp_server(url: str = "http://127.0.0.1:8000/mcp"):
                 init_result = await session.initialize()
                 print(f"[OK] Connected! Server Name: {init_result.server_info.name} (v{init_result.server_info.version})")
 
-                # 2. Discover available tools
+                # 2. Discover available tools & MCP App UI metadata
                 print("\n[*] Asking server for list of available tools...")
                 tools_response = await session.list_tools()
                 print(f"[+] Discovered {len(tools_response.tools)} dynamic tools:")
                 for t in tools_response.tools:
-                    print(f"   - {t.name}: {t.description}")
+                    meta = getattr(t, 'meta', None) or {}
+                    ui_uri = meta.get('ui', {}).get('resourceUri', '')
+                    ui_info = f" [MCP App UI -> {ui_uri}]" if ui_uri else ""
+                    print(f"   - {t.name}{ui_info}")
 
-                # 3. Test Tool 1: get_devices (all devices)
-                print("\n[*] [Test 1] Inspecting all devices via get_devices()...")
-                all_devs = await session.call_tool("get_devices")
-                raw_text = all_devs.content[0].text if all_devs.content else "{}"
-                dev_data = json.loads(raw_text)
-                print(f"   Discovered {len(dev_data)} active devices in home state.")
+                # 2b. Discover and Read MCP App UI Resource
+                print("\n[*] [MCP App Check] Inspecting MCP App UI resources...")
+                resources_response = await session.list_resources()
+                print(f"[+] Discovered {len(resources_response.resources)} resources:")
+                ui_found = False
+                for r in resources_response.resources:
+                    print(f"   - {r.uri} ({r.mime_type})")
+                    if str(r.uri) == "ui://house-alexa/dashboard.html":
+                        ui_found = True
+
+                assert ui_found, "UI resource ui://house-alexa/dashboard.html not found!"
+                ui_content = await session.read_resource("ui://house-alexa/dashboard.html")
+                assert len(ui_content.contents) > 0, "Empty UI resource content!"
+                html_text = ui_content.contents[0].text
+                assert "<!DOCTYPE html>" in html_text, "Invalid HTML in UI resource!"
+                print(f"   [OK] Verified interactive UI resource ({len(html_text)} bytes) conforming to MCP Apps SDK!")
+
+                # 3. Test Tool 1: open_dashboard (MCP App launch)
+                print("\n[*] [Test 1] Invoking open_dashboard()...")
+                dash_res = await session.call_tool("open_dashboard")
+                dash_data = json.loads(dash_res.content[0].text)
+                print(f"   Response status: {dash_data.get('status')} - {dash_data.get('message')}")
 
                 # 4. Test Tool 2: get_devices with filter
                 print("\n[*] [Test 2] Filtering devices by category 'lighting'...")
@@ -101,7 +120,7 @@ async def test_mcp_server(url: str = "http://127.0.0.1:8000/mcp"):
                 else:
                     print("   [WARN] house_state.json not found in working directory (might be running remotely)")
 
-                print("\n[SUCCESS] ALL DYNAMIC MCP TESTS PASSED! Your AI-first smart home server is 100% operational!")
+                print("\n[SUCCESS] ALL DYNAMIC MCP APP TESTS PASSED! Server + UI Resource 100% compliant!")
     except Exception as e:
         print(f"\n[FAIL] Error connecting to MCP server: {e}", file=sys.stderr)
         raise
