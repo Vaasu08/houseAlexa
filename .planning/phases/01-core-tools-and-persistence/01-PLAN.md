@@ -1,7 +1,7 @@
 ---
 phase: "01"
 name: "Core Tools & State Persistence"
-status: "ready"
+status: "completed"
 wave_count: 2
 ---
 
@@ -48,7 +48,8 @@ Implement missing device control tools (garage door), correct device schema vali
 ---
 
 ## Acceptance Criteria
-- [ ] Server exposes 6 tools instead of 5 (`get_house_status`, `control_light`, `control_thermostat`, `control_door_lock`, `control_garage_door`, `control_music`).
-- [ ] `house_state.json` is automatically updated on disk whenever any tool is invoked.
-- [ ] Server reload preserves device state from disk instead of resetting to defaults.
-- [ ] `test_client.py` executes all 6 tool tests and exits with code 0.
+- [x] Server exposes 6 tools instead of 5 (`get_house_status`, `control_light`, `control_thermostat`, `control_door_lock`, `control_garage_door`, `control_music`).
+- [x] `house_state.json` is automatically updated on disk whenever any tool is invoked.
+- [x] Server reload preserves device state from disk instead of resetting to defaults.
+- [x] `test_client.py` executes all 6 tool tests and exits with code 0.
+
