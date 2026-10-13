@@ -89,6 +89,21 @@ def control_door_lock(
 
 
 @mcp_server.tool(
+    name="control_garage_door",
+    description="Open or close the garage door.",
+)
+def control_garage_door(
+    open: bool,
+) -> str:
+    """Open or close the garage door.
+
+    Args:
+        open: True to open 🚪, False to close.
+    """
+    return house.set_garage_door(open=open)
+
+
+@mcp_server.tool(
     name="control_music",
     description="Control the living room speaker: play a song, pause music, or set the volume (0-100).",
 )

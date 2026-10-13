@@ -4,3 +4,5 @@ __pycache__/
 *$py.class
 .env
 .pytest_cache/
+house_state.json
+

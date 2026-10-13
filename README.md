@@ -44,7 +44,10 @@ python test_client.py
 | `control_light` | Controls light power, brightness, and color. | `{"room": "bedroom", "power": true, "brightness": 85}` |
 | `control_thermostat` | Sets target AC/heating temperature & HVAC mode. | `{"temperature_celsius": 21.0, "mode": "cool"}` |
 | `control_door_lock` | Locks or unlocks entrance doors. | `{"door": "front_door", "locked": true}` |
+| `control_garage_door` | Opens or closes the garage door. | `{"open": true}` |
 | `control_music` | Controls music playback & volume on speaker. | `{"action": "play", "track": "Lo-Fi Beats", "volume": 60}` |
+
+> 💾 **State Persistence**: Device states automatically persist to `house_state.json` on any change and reload when the server starts.
 
 ---
 

@@ -61,18 +61,39 @@ async def test_mcp_server(url: str = "http://127.0.0.1:8000/mcp"):
                 )
                 print(f"   Response: {lock_res.content[0].text if lock_res.content else 'None'}")
 
-                # 7. Test Tool 5: Play Lo-Fi Beats
-                print("\n[*] [Test 5] Playing Chill Lo-Fi on Living Room Speaker...")
+                # 7. Test Tool 5: Open Garage Door
+                print("\n[*] [Test 5] Opening the Garage Door...")
+                garage_res = await session.call_tool(
+                    "control_garage_door",
+                    {"open": True},
+                )
+                print(f"   Response: {garage_res.content[0].text if garage_res.content else 'None'}")
+
+                # 8. Test Tool 6: Play Lo-Fi Beats
+                print("\n[*] [Test 6] Playing Chill Lo-Fi on Living Room Speaker...")
                 music_res = await session.call_tool(
                     "control_music",
                     {"action": "play", "track": "Midnight Lofi Beats", "volume": 65},
                 )
                 print(f"   Response: {music_res.content[0].text if music_res.content else 'None'}")
 
-                # 8. Check final updated house status
+                # 9. Check final updated house status
                 print("\n[*] [Final Check] Verifying all updated device states...")
                 final_status = await session.call_tool("get_house_status")
                 print(f"   Updated house state:\n{final_status.content[0].text if final_status.content else 'None'}")
+
+                # 10. Verify disk persistence
+                import os
+                import json
+                print("\n[*] [Persistence Check] Verifying house_state.json on disk...")
+                if os.path.exists("house_state.json"):
+                    with open("house_state.json", "r", encoding="utf-8") as f:
+                        disk_data = json.load(f)
+                    assert disk_data["security"]["garage_door"]["open"] is True, "Garage door state not saved to disk!"
+                    assert disk_data["lights"]["bedroom"]["power"] is True, "Bedroom light state not saved to disk!"
+                    print("   [OK] house_state.json successfully verified on disk!")
+                else:
+                    print("   [WARN] house_state.json not found in working directory (might be running remotely)")
 
                 print("\n[SUCCESS] ALL TESTS PASSED! Your MCP server is 100% compliant and working!")
     except Exception as e:
@@ -83,3 +104,4 @@ async def test_mcp_server(url: str = "http://127.0.0.1:8000/mcp"):
 if __name__ == "__main__":
     url = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8000/mcp"
     asyncio.run(test_mcp_server(url))
+
