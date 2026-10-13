@@ -1,17 +1,20 @@
-# 🏠 houseAlexa MCP Server
+# 🏠 houseAlexa MCP Server (v2.0 AI-First Dynamic Architecture)
 
-A self-hosted **Model Context Protocol (MCP)** server built in Python for **Alexa+** integrations and local AI testing.
+A self-hosted **Model Context Protocol (MCP)** server built in Python for **Alexa+** integrations and generative AI agents.
 
 Complies directly with the Amazon Developer Hackathon specification:
 > *"Build a self-hosted MCP server (spec 2025-11-25 or later, Streamable HTTP) or an Agent Skill. MCP is the open standard that powers Alexa+ integrations."*
 
 ---
 
-## 🧸 How It Works (In Plain English)
+## 🧠 Why AI-First Dynamic Architecture?
 
-1. **The Dollhouse (`house_state.py`)**: Keeps track of virtual lights, thermostats, locks, and speakers.
-2. **The Base Station (`server.py`)**: The MCP server that exposes tools via **Streamable HTTP** (`/mcp` endpoint) on port `8000`.
-3. **The Tester (`test_client.py`)**: Connects over Streamable HTTP, lists all tools, and tests each action.
+In traditional legacy smart homes, developers had to hardcode a separate API endpoint for every single gadget (lights, plugs, locks, vacuums).
+
+**houseAlexa v2.0 is built for Generative AI**:
+1. **Dynamic Entity Registry (`house_state.py`)**: Can control any device or auto-register brand new appliances on the fly (e.g., `robot_vacuum`, `coffee_maker`, `sprinklers`) with **zero Python code changes**.
+2. **Dynamic Tools (`server.py`)**: Rather than 20 repetitive functions, it exposes 3 powerful meta-tools (`control_device`, `get_devices`, `apply_scene`) and a live MCP prompt resource (`house://devices`).
+3. **Automated State Persistence**: Device state is automatically saved to `house_state.json` and restored on reboot.
 
 ---
 
@@ -36,16 +39,17 @@ python test_client.py
 
 ---
 
-## 🛠️ Available Smart Home Tools
+## 🛠️ Dynamic MCP Tools & Resources
 
+### Live MCP Resource
+* **`house://devices`**: Live context stream providing real-time device states directly into Alexa+'s prompt context window before speech interaction.
+
+### Dynamic Tools
 | Tool Name | What It Does | Example Arguments |
 | :--- | :--- | :--- |
-| `get_house_status` | Returns the status of all devices in the home. | None |
-| `control_light` | Controls light power, brightness, and color. | `{"room": "bedroom", "power": true, "brightness": 85}` |
-| `control_thermostat` | Sets target AC/heating temperature & HVAC mode. | `{"temperature_celsius": 21.0, "mode": "cool"}` |
-| `control_door_lock` | Locks or unlocks entrance doors. | `{"door": "front_door", "locked": true}` |
-| `control_garage_door` | Opens or closes the garage door. | `{"open": true}` |
-| `control_music` | Controls music playback & volume on speaker. | `{"action": "play", "track": "Lo-Fi Beats", "volume": 60}` |
+| `get_devices` | Inspects all devices, or filters by category or room. | `{"filter": "lighting"}` or `{"filter": "bedroom"}` |
+| `control_device` | Dynamically updates any property on any existing or newly added device. | `{"device_id": "robot_vacuum", "updates": {"status": "cleaning_kitchen", "battery": 90}}` |
+| `apply_scene` | Activates pre-set scenes (`bedtime`, `movie_night`, `leaving_home`, `good_morning`) or batch updates. | `{"scene_name": "movie_night"}` |
 
 > 💾 **State Persistence**: Device states automatically persist to `house_state.json` on any change and reload when the server starts.
 
@@ -53,12 +57,10 @@ python test_client.py
 
 ## 🌐 Connecting to Alexa+ (When Ready)
 
-To allow Amazon's Alexa+ to reach your self-hosted MCP server:
-
 1. Expose your local port `8000` via a secure tunnel (e.g., [ngrok](https://ngrok.com/)):
    ```bash
    ngrok http 8000
    ```
 2. Copy the public HTTPS forwarding URL:
    `https://<your-id>.ngrok-free.app/mcp`
-3. Provide this URL to your Alexa+ add-on / hackathon submission.
+3. Provide this URL to your Alexa+ add-on manifest using `@alexa-ai/cli`.

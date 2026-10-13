@@ -1,125 +1,87 @@
 """
-server.py - Self-Hosted MCP Server for houseAlexa
+server.py - Self-Hosted Dynamic MCP Server for houseAlexa
 Conforms to: MCP Spec (Streamable HTTP transport) for Alexa+
 
-Analogy for a 5yo:
-This is the Walkie-Talkie Base Station!
-Whenever a Brain (Alexa+, Claude, or a local robot) calls in over the radio,
-this file answers the call and pushes the buttons on our Lego House.
+AI-First Architecture:
+Rather than hardcoding separate tools for every device, this server exposes:
+1. Dynamic Controller (`control_device`): Control any existing or newly added device.
+2. Device Inspector (`get_devices`): Inspect all devices or filter by category/room.
+3. Macro Scene Activator (`apply_scene`): Execute multi-device routines in a single call.
+4. Live Context Resource (`house://devices`): Live prompt context for Alexa+.
 """
 
 import sys
+import json
 import argparse
+from typing import Optional, Dict, Any
 from mcp.server.mcpserver import MCPServer
 from house_state import house
 
 # 1. Create the MCP Server
 mcp_server = MCPServer(
     name="house-alexa-mcp",
-    version="1.0.0",
-    description="Smart home control server for Alexa+ integrations via Model Context Protocol.",
+    version="2.0.0",
+    description="Dynamic AI-first smart home control server for Alexa+ integrations via Model Context Protocol.",
 )
 
+# 2. Live MCP Resource: Alexa+ has the live home state streamed directly into prompt context
+@mcp_server.resource("house://devices")
+def live_devices_state() -> str:
+    """Live state of all devices and appliances in the home."""
+    return json.dumps(house.get_summary(), indent=2)
 
-# 2. Add the buttons (Tools) that the AI Brain can press
 
-
+# 3. Dynamic AI Tools
 @mcp_server.tool(
-    name="get_house_status",
-    description="Inspect the entire house to see what lights are on, current temperature, door locks, and music status.",
+    name="get_devices",
+    description="Inspect smart home devices. Returns all devices or filters by category (lighting, climate, security, media, appliance) or room (living_room, bedroom, kitchen, garage).",
 )
-def get_house_status() -> dict:
-    """Returns the current state of all devices in the house."""
-    return house.get_summary()
-
-
-@mcp_server.tool(
-    name="control_light",
-    description="Turn a light on or off in a specific room (living_room, bedroom, kitchen), and adjust brightness (0-100) or color.",
-)
-def control_light(
-    room: str,
-    power: bool,
-    brightness: int = 100,
-    color: str = None,
-) -> str:
-    """Control a room light.
+def get_devices(filter: Optional[str] = None) -> dict:
+    """Inspect smart home devices.
 
     Args:
-        room: Name of the room (living_room, bedroom, kitchen).
-        power: True to turn ON, False to turn OFF.
-        brightness: Brightness level from 0 to 100 percent.
-        color: Optional color name (e.g. warm_white, blue, red).
+        filter: Optional keyword to filter devices by room or category (e.g. 'bedroom', 'lighting', 'security').
     """
-    return house.set_light(room=room, power=power, brightness=brightness, color=color)
+    return house.get_devices(filter_query=filter)
 
 
 @mcp_server.tool(
-    name="control_thermostat",
-    description="Set the target house temperature in Celsius and choose the HVAC mode (cool, heat, eco, fan, off).",
+    name="control_device",
+    description="Dynamically control or set properties on any device in the home. Works for existing devices (lights, thermostat, doors, garage, speakers) AND new appliances (robot_vacuum, coffee_maker, oven, sprinklers) without hardcoding.",
 )
-def control_thermostat(
-    temperature_celsius: float,
-    mode: str = "cool",
-) -> str:
-    """Control house AC/Heating.
+def control_device(
+    device_id: str,
+    updates: dict,
+) -> dict:
+    """Dynamically control any smart device.
 
     Args:
-        temperature_celsius: Target temperature in degrees Celsius (e.g., 21.5).
-        mode: HVAC mode (cool, heat, eco, fan, off).
+        device_id: Name or ID of the device (e.g. 'bedroom_light', 'thermostat', 'front_door', 'garage_door', 'robot_vacuum').
+        updates: Key-value dictionary of desired properties (e.g. {'power': True, 'brightness': 80}, {'locked': False}, {'open': True}, {'status': 'cleaning'}).
     """
-    return house.set_thermostat(target_c=temperature_celsius, mode=mode)
+    return house.update_device(device_id=device_id, updates=updates)
 
 
 @mcp_server.tool(
-    name="control_door_lock",
-    description="Lock or unlock a specific entrance door (front_door, back_door).",
+    name="apply_scene",
+    description="Activate a multi-device scene (e.g. 'bedtime', 'leaving_home', 'movie_night', 'good_morning') or apply a batch update across multiple devices in one single call.",
 )
-def control_door_lock(
-    door: str,
-    locked: bool,
-) -> str:
-    """Lock or unlock a house door.
+def apply_scene(
+    scene_name: Optional[str] = None,
+    batch_updates: Optional[dict] = None,
+) -> dict:
+    """Trigger a home routine or batch update.
 
     Args:
-        door: The door name (front_door, back_door).
-        locked: True to lock 🔒, False to unlock 🔓.
+        scene_name: Built-in scene name ('bedtime', 'leaving_home', 'movie_night', 'good_morning').
+        batch_updates: Optional dictionary mapping device IDs to their updates (e.g. {'bedroom_light': {'power': False}, 'front_door': {'locked': True}}).
     """
-    return house.set_lock(door=door, locked=locked)
-
-
-@mcp_server.tool(
-    name="control_garage_door",
-    description="Open or close the garage door.",
-)
-def control_garage_door(
-    open: bool,
-) -> str:
-    """Open or close the garage door.
-
-    Args:
-        open: True to open 🚪, False to close.
-    """
-    return house.set_garage_door(open=open)
-
-
-@mcp_server.tool(
-    name="control_music",
-    description="Control the living room speaker: play a song, pause music, or set the volume (0-100).",
-)
-def control_music(
-    action: str,
-    track: str = "Chill Beats",
-    volume: int = 50,
-) -> str:
-    """Control the music speaker.
-
-    Args:
-        action: One of 'play', 'pause', 'stop', 'volume'.
-        track: Song or playlist title to play.
-        volume: Volume level from 0 to 100 (when action='volume').
-    """
-    return house.control_media(action=action, track=track, volume=volume)
+    if scene_name:
+        return house.activate_scene(scene_name)
+    elif batch_updates:
+        return house.batch_update(batch_updates)
+    else:
+        return {"error": "Please provide either scene_name or batch_updates."}
 
 
 def main():
@@ -141,7 +103,7 @@ def main():
     args = parser.parse_args()
 
     print("=" * 60)
-    print(" [HOUSE] houseAlexa MCP Server (Alexa+ Spec)")
+    print(" [HOUSE] houseAlexa Dynamic MCP Server (Alexa+ Spec v2.0)")
     print(f" Transport: {args.transport}")
     if args.transport in ("streamable-http", "sse"):
         print(f" Listening on: http://{args.host}:{args.port}{args.path}")
